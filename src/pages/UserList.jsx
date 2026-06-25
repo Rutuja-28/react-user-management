@@ -10,6 +10,11 @@ import DeleteModal from "../components/DeleteModal";
 
 function UserList() {
   const [users, setUsers] = useState([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const usersPerPage = 10;
+
   const [filteredUsers, setFilteredUsers] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -22,35 +27,30 @@ function UserList() {
   const [selectedId, setSelectedId] = useState(null);
 
   const fetchUsers = async () => {
-  try {
-    const localUsers = JSON.parse(
-      localStorage.getItem("users")
-    );
+    try {
+      const localUsers = JSON.parse(localStorage.getItem("users"));
 
-    if (localUsers && localUsers.length > 0) {
-      setUsers(localUsers);
-      setFilteredUsers(localUsers);
-    } else {
-      const response = await api.get("?limit=20");
+      if (localUsers && localUsers.length > 0) {
+        setUsers(localUsers);
+        setFilteredUsers(localUsers);
+      } else {
+        const response = await api.get("?limit=20");
 
-      setUsers(response.data.users);
-      setFilteredUsers(response.data.users);
+        setUsers(response.data.users);
+        setFilteredUsers(response.data.users);
 
-      localStorage.setItem(
-        "users",
-        JSON.stringify(response.data.users)
-      );
+        localStorage.setItem("users", JSON.stringify(response.data.users));
+      }
+    } catch (error) {
+      toast.error("Failed to fetch users");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    toast.error("Failed to fetch users");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
- useEffect(() => {
-  fetchUsers();
-}, []);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     let result = users;
@@ -70,6 +70,7 @@ function UserList() {
     }
 
     setFilteredUsers(result);
+    setCurrentPage(1);
   }, [search, role, users]);
 
   //delete user
@@ -77,30 +78,18 @@ function UserList() {
     try {
       await api.delete(`/${selectedId}`);
 
-      const updatedUsers =
-  users.filter(
-    user =>
-      user.id !== selectedId
-  );
+      const updatedUsers = users.filter((user) => user.id !== selectedId);
 
-setUsers(updatedUsers);
-setFilteredUsers(updatedUsers);
+      setUsers(updatedUsers);
+      setFilteredUsers(updatedUsers);
 
-localStorage.setItem(
-  "users",
-  JSON.stringify(updatedUsers)
-);
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
 
-setUsers(updatedUsers);
+      setUsers(updatedUsers);
 
-setFilteredUsers(
-  updatedUsers
-);
+      setFilteredUsers(updatedUsers);
 
-localStorage.setItem(
-  "users",
-  JSON.stringify(updatedUsers)
-);
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
 
       setUsers(updatedUsers);
 
@@ -122,22 +111,35 @@ localStorage.setItem(
     );
   }
 
-  if (
-  !loading &&
-  filteredUsers.length === 0
-) {
-  return (
-    <>
-      <Navbar />
+  if (!loading && filteredUsers.length === 0) {
+    return (
+      <>
+        <Navbar />
 
-      <div className="text-center mt-20">
-        <h2 className="text-2xl text-gray-500">
-          No Users Found
-        </h2>
-      </div>
-    </>
+        <div className="text-center mt-20">
+          <h2 className="text-2xl text-gray-500">No Users Found</h2>
+        </div>
+      </>
+    );
+  }
+
+  //pagination calculation
+  const indexOfLastUser =
+  currentPage * usersPerPage;
+
+const indexOfFirstUser =
+  indexOfLastUser - usersPerPage;
+
+const currentUsers =
+  filteredUsers.slice(
+    indexOfFirstUser,
+    indexOfLastUser
   );
-}
+
+const totalPages = Math.ceil(
+  filteredUsers.length /
+    usersPerPage
+);
   return (
     <>
       <Navbar />
@@ -167,7 +169,7 @@ localStorage.setItem(
             </thead>
 
             <tbody>
-              {filteredUsers.map((user) => (
+              {currentUsers.map((user) => (
                 <tr key={user.id} className="border-b hover:bg-gray-50">
                   <td className="p-4">
                     {user.firstName} {user.lastName}
@@ -213,6 +215,57 @@ localStorage.setItem(
               ))}
             </tbody>
           </table>
+
+          <div className="flex justify-center gap-2 mt-6">
+
+  <button
+    disabled={currentPage === 1}
+    onClick={() =>
+      setCurrentPage(
+        currentPage - 1
+      )
+    }
+    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+  >
+    Previous
+  </button>
+
+  {[...Array(totalPages)].map(
+    (_, index) => (
+      <button
+        key={index}
+        onClick={() =>
+          setCurrentPage(
+            index + 1
+          )
+        }
+        className={`px-4 py-2 rounded ${
+          currentPage ===
+          index + 1
+            ? "bg-indigo-600 text-white"
+            : "bg-gray-200"
+        }`}
+      >
+        {index + 1}
+      </button>
+    )
+  )}
+
+  <button
+    disabled={
+      currentPage === totalPages
+    }
+    onClick={() =>
+      setCurrentPage(
+        currentPage + 1
+      )
+    }
+    className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+  >
+    Next
+  </button>
+
+</div>
         </div>
 
         <DeleteModal
